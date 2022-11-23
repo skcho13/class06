@@ -171,7 +171,6 @@ p <- bikes_daily |>
   geom_point()
 ggplotly(p)
 
-# https://www.timeanddate.com/holidays/us/2011
-
-
 ```
+
+[US Holidays in 2011](https://www.timeanddate.com/holidays/us/2011)
