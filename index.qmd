@@ -1,0 +1,174 @@
+---
+title: "class02"
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+ggthemr::ggthemr("fresh")
+
+bikes <- ISLR2::Bikeshare |> tibble()
+
+bikes <- bikes |> 
+  mutate(
+    season = factor(season, labels = c("winter", "spring", "summer", "fall"))
+  ) |> 
+  mutate(
+    date = as.Date(day, origin = "2010-12-31"),
+    datetime = make_datetime(year(date), month(date), mday(date), hr)
+  )
+
+glimpse(bikes)
+
+# 날에 따른 변화
+bikes_daily <- 
+  bikes |> 
+  group_by(date) |> 
+  summarise(n = sum(bikers),
+            temp_h = max(temp),
+            temp_l = min(temp),
+            temp_m = mean(temp))
+bikes_daily
+
+bikes_daily <-
+  bikes_daily |> 
+  mutate(wday = wday(date, label = TRUE),
+         month = month(date, label = TRUE))
+bikes_daily
+
+bikes_daily |> 
+  ggplot(aes(x = date, y = n)) +
+  geom_line()
+
+# 요일에 따라 차이가 있는가?
+bikes_daily |> 
+  ggplot(aes(x = wday, y = n)) +
+  geom_boxplot()
+
+# 달(기온)에 따라 차이가 있는가?
+bikes_daily |> 
+  ggplot(aes(x = month, y = n)) +
+  geom_boxplot()
+
+bikes_daily |> 
+  ggplot(aes(x = temp_h, y = n)) +
+  geom_point(alpha = .6) +
+  geom_smooth()
+
+bikes_daily |> 
+  ggplot(aes(x = temp_l, y = n)) +
+  geom_point(alpha = .6) +
+  geom_smooth()
+
+bikes_daily |> 
+  ggplot(aes(x = temp_m, y = n)) +
+  geom_point(alpha = .6) +
+  geom_smooth()
+
+library(splines)
+bikes_daily |> 
+  ggplot(aes(x = temp_m, y = n)) +
+  geom_point(alpha = .6) +
+  geom_smooth(method = "lm", formula = y ~ ns(x, 3))
+
+library(psych)
+corr.test(bikes_daily |> select(starts_with("temp")))  
+
+mod <- lm(n ~ ns(temp_m, 3), data = bikes_daily)
+summary(mod)
+
+library(modelr)
+bikes_daily <- 
+  bikes_daily |> 
+  add_residuals(mod)
+
+bikes_daily |> 
+  ggplot(aes(x = date, y = resid)) +
+  geom_line()
+
+bikes_daily |> 
+  ggplot(aes(x = month, y = resid)) +
+  geom_boxplot()
+
+# seasons
+bikes |> 
+  group_by(season) |> 
+  summarise(start = min(date),
+            end = max(date))
+
+season <- function(date) {
+  cut(date, 
+      breaks = ymd(20110101, 20110321, 20110620, 20110922, 20111220, 20111231),
+      labels = c("winter", "spring", "summer", "fall", "winter") 
+  )
+} 
+
+bikes_daily <- 
+  bikes_daily |> 
+  mutate(season = season(date))
+
+bikes_daily |> 
+  ggplot(aes(x = date, y = resid, color = season)) +
+  geom_point()
+
+bikes_daily |> 
+  ggplot(aes(x = temp_m, y = n, color = season)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, formula = y ~ ns(x, 3))
+
+(p <- bikes_daily |> 
+  ggplot(aes(x = date, y = resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0))
+
+# install.packages("plotly")
+library(plotly)
+ggplotly(p)
+
+season2 <- function(date) {
+  cut(date, 
+      breaks = ymd(20110101, 20110417, 20111001, 20111231),
+      labels = c("winter(1.1~4.16)", "spring/summer(~9.30)", "fall(~12.31)") 
+  )
+} 
+
+bikes_daily <- 
+  bikes_daily |> 
+  mutate(season2 = season2(date))
+
+bikes_daily |> 
+  ggplot(aes(x = temp_m, y = n, color = season2)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, formula = y ~ ns(x, 3))
+
+
+# model
+mod2 <- lm(n ~ ns(temp_m, 3) + season2, data = bikes_daily)
+summary(mod2)
+
+bikes_daily <- 
+  bikes_daily |> 
+  add_residuals(mod2, "resid2")
+
+bikes_daily |> 
+  ggplot(aes(x = date, y = resid2)) +
+  geom_point()
+
+bikes_daily |> 
+  ggplot(aes(x = temp_m, y = resid2, color = season2)) +
+  geom_point() +
+  geom_smooth(span = 1, se = FALSE)
+
+bikes_daily |> 
+  filter(abs(resid2) > 1500) 
+
+p <- bikes_daily |> 
+  mutate(outlier = abs(resid2) > 1500) |> 
+  ggplot(aes(x = date, y = resid2, color = outlier)) +
+  geom_point()
+ggplotly(p)
+
+# https://www.timeanddate.com/holidays/us/2011
+
+
+```
